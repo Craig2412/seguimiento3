@@ -13,6 +13,20 @@ require __DIR__ . '/../class/classRegistros.php';
 require __DIR__ . '/../class/classPaginador.php';
 require __DIR__ . '/../config/db.php';
 require __DIR__ . '/../variables/global_var.php';
+require __DIR__ . '/../../vendor/autoload.php';
+
+
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+
+
+
+$_SESSION['documento'] = IOFactory::load('../PozosRehab.xlsx');
+$_SESSION['documento_fugas'] = IOFactory::load('../fugasReparadas.xlsx');
+$_SESSION['documento_tomas_ilegales'] = IOFactory::load('../tomasIlegales.xlsx');
+$_SESSION['operatividad_abastecimiento'] = IOFactory::load('../operatividadAbastecimiento.xlsx');
+$_SESSION['brippas'] = IOFactory::load('../brippas.xlsx');
+
 
 $app->add(Tuupola());
 
@@ -583,6 +597,7 @@ $app->get('/user/verification', function (Request $request, Response $response) 
     
 });
 
+
 $app->group('/api/user/', function () use ($app) {
     
     $app->post('authenticate', function (Request $request, Response $response) {
@@ -739,14 +754,6 @@ $app->group('/api/user/', function () use ($app) {
 
 
 
-$app->get('/api/pruebas/jwt', function (Request $request, Response $response) {
-    $token=$request->getAttribute('jwt')['data'];
-    return json_encode($token);
-    
-
-});
-
-
 $app->get('/api/reportes/paginador[/{params:.*}]', function (Request $request, Response $response, $args) {
     /*
 VALORES NECESARIOS 
@@ -811,8 +818,7 @@ if (!empty($args['params'])) {
             LEFT JOIN `tablas` ON `reporte`.`id_tabla` = `tablas`.`id` 
             LEFT JOIN `estados` ON `reporte`.`id_estado` = `estados`.`id_estado` 
             WHERE reporte.id_estado = ? AND reporte.id_tabla = ?
-            ORDER BY reporte.id DESC
-            LIMIT $inicio , $regPagina ";
+            LIMIT $inicio , $regPagina";
             $resultado = $db->consultaAll('mapa',$sql2, [$params[0], $params[1]]);
         }else{
             $sql2 = "SELECT SQL_CALC_FOUND_ROWS  reporte.* , estados.estado, tablas.tipo_reporte 
@@ -820,8 +826,7 @@ if (!empty($args['params'])) {
             LEFT JOIN `tablas` ON `reporte`.`id_tabla` = `tablas`.`id` 
             LEFT JOIN `estados` ON `reporte`.`id_estado` = `estados`.`id_estado` 
             WHERE reporte.id_tabla = ?
-            ORDER BY reporte.id DESC
-            LIMIT $inicio , $regPagina ";
+            LIMIT $inicio , $regPagina";
             $resultado = $db->consultaAll('mapa',$sql2, [$params[1]]);
         }
         
@@ -832,7 +837,6 @@ if (!empty($args['params'])) {
         FROM reporte 
         LEFT JOIN `tablas` ON `reporte`.`id_tabla` = `tablas`.`id` 
         LEFT JOIN `estados` ON `reporte`.`id_estado` = `estados`.`id_estado` 
-        ORDER BY reporte.id DESC
         LIMIT $inicio , $regPagina";
         $resultado = $db->consultaAll('mapa',$sql2);
     }
@@ -1138,7 +1142,7 @@ $app->get('/api/desplegables/estados[/{id}]', function (Request $request, Respon
 
     $app->get('/api/reportes/dia', function (Request $request, Response $response) {
 
-        $estados_asociativos = [
+        $esta = [
             ["Amazonas" => []],
             ["Anzoátegui" => []],
             ["Apure" => []],
@@ -1164,7 +1168,10 @@ $app->get('/api/desplegables/estados[/{id}]', function (Request $request, Respon
             ["Zulia" => []],
             ["Distrito Capital" => []]
         ];
-        
+    
+        //$esta[0]["ANZOATEGUI"]["produccion"] = 1000;
+    //    var_dump($esta);
+    
         $sql = "SELECT reporte.*, tablas.tipo_reporte, estados.estado
         FROM `reporte`
         LEFT JOIN tablas ON reporte.id_tabla = tablas.id
@@ -1182,13 +1189,12 @@ $app->get('/api/desplegables/estados[/{id}]', function (Request $request, Respon
     
                 $esta[$state_id][$name_state][$Type_report_set] = "REPORTADO";
             }
-            
-          
-            var_dump($esta);
         }else {
-            return validarDatosReturn($estados_asociativos, $response);
-        }           
-    });
+            return validarDatosReturn($esta, $response);
+        }
+    
+           
+        });
           
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////      
@@ -1549,25 +1555,7 @@ $app->get('/api/reportes/fecha[/{params:.*}]', function (Request $request, Respo
 
     
     $app->get('/api/dashboard/ultimos_reportes', function (Request $request, Response $response) {
-        
-        $hoja_actual= $_SESSION['documento']->getSheet(0);
-        $filas = $hoja_actual->getHighestDataRow();
-        $letra =$hoja_actual->getHighestColumn();
-        $array = [1,2];
-        
-        for ($i=0; $i < $filas; $i++) { 
-            $valor = $hoja_actual->getCellByColumnAndRow(2,$i);
-            //array_push($array, $valor);
-            var_dump($valor);
-        }
-        
-    //var_dump($array);
-
-
-
-
-
-        /*        
+                
         $sql = "SELECT `reporte`.*, tablas.tipo_reporte
         FROM `reporte`
         LEFT JOIN tablas ON reporte.id_tabla = tablas.id
@@ -1577,7 +1565,7 @@ $app->get('/api/reportes/fecha[/{params:.*}]', function (Request $request, Respo
         $ultimos_reportes = $db->consultaAll('mapa',$sql);
         $values = array_slice($ultimos_reportes,-5);
 
-        return validarDatosReturn($values, $response);*/
+        return validarDatosReturn($values, $response);
     });
 
 
@@ -2010,7 +1998,7 @@ $app->get('/api/reportes/fecha[/{params:.*}]', function (Request $request, Respo
 
 $app->post('/api/formularios/reportes', function (Request $request, Response $response) {
     $body = json_decode($request->getBody());
-    //$body= $body->body;
+    $body= $body->body;
     $TablaConsultar = $_SESSION['TypeConsult'];
     $tablasInsertar=[
     ['`metros_cubicos`', '`id_estado`', '`id_reporte`'],
@@ -2059,67 +2047,81 @@ $app->post('/api/formularios/reportes', function (Request $request, Response $re
             
         }else{
             if (count($tablasInsertar[$body->{'tipo_formulario'}]) !== (count($body->{'valores_insertar'}))) {
-                return enviarCods(200,'warning','LOS VALORES NO COINCIDEN CON EL TIPO DE FORMULARIO',[] , $response);
+                return 'LOS VALORES NO COINCIDEN CON EL TIPO DE FORMULARIO';
             }
         }        
     }else{
-                return enviarCods(200,'warning','NO HAY VALORES PARA INSERTAR',[] , $response);
+        return 'NO HAY VALORES PARA INSERTAR';
+    }
+
     
     if (isset($body->{'tipo_formulario'})) {
         
         
         if (($body->{'tipo_formulario'} >= 0) AND ($body->{'tipo_formulario'} <=6)) {
-
             $sqlreporte = "INSERT INTO `reporte` (`id`, `ubicacion_reporte`, `fecha`, id_tabla, id_estado, id_revision) VALUES (NULL, ?, ?,?,?,?)";
+
             $sqlFormulario = generarSqlRegistro($tablasInsertar[$body->{'tipo_formulario'}], $body->{'tipo_formulario'}, $TablaConsultar[$body->{'tipo_formulario'}],);
+
             $values = array_slice($body->{'valores_insertar'},2,-1);
             $validacion = validarDatosFormulario($values,$body->{'tipo_formulario'},$tipoDatos[$body->{'tipo_formulario'}]);
 
+
             if ($validacion !== 'OK') {
-                return enviarCods(200, 'warning', $validacion, [] , $response);
+                return  $validacion;
             }
-
-            if (validarReporteDia( $body->{'id_estado'}, $body->{'tipo_formulario'}, $body->{'valores_insertar'}[1]) !== 'OK') {
-                return enviarCods(200, 'warning', 'YA SE HA HECHO UN REPORTE EL DIA DE HOY', [] , $response);
-            }
-
+    
             $db = new DB();
+
             $stmt = $db->consultaAll('mapa', $sqlreporte, [$body->{'valores_insertar'}[0], $body->{'valores_insertar'}[1],$body->{'tipo_formulario'}, $body->{'id_estado'},1]);
             
             if ($stmt) {
                 array_push($values,$stmt->{'insert_id'});
                 $stmt2 = $db->consultaAll('mapa', $sqlFormulario, $values);
                 if ($stmt2) {
-                    $db = null;
-                    return validarDatosReturn(["id"=>$stmt->{'insert_id'}], $response);
-                }else {
-                    return enviarCods(200,'warning','ERROR EN EL REGISTRO DEL REPORTE',[] , $response);
-                }
+                $db = null;
+                return validarDatosReturn(["id"=>$stmt->{'insert_id'}], $response);
+            } else {
+                return 'ERROR EN EL REGISTRO DEL REPORTE';
+            }
             }
 
         }elseif(($body->{'tipo_formulario'} >= 7) AND ($body->{'tipo_formulario'} <=9)){
-           
             $sqlFormulario = generarSqlRegistro($tablasInsertar[$body->{'tipo_formulario'}], $body->{'tipo_formulario'}, $TablaConsultar[$body->{'tipo_formulario'}]);
+            
+            
             $validacion = validarDatosFormulario($body->{'valores_insertar'},$body->{'tipo_formulario'},$tipoDatos[$body->{'tipo_formulario'}]);
+
 
             if ($validacion !== 'OK') {
                 return  $validacion;
+            }
+
+            if (validarReporteDia( $body->{'id_estado'}, $body->{'tipo_formulario'}, $body->{'valores_insertar'}[1]) !== 'OK') {
+                return enviarCods(200, 'warning', 'YA SE HA HECHO UN REPORTE EL DIA DE HOY', [] , $response);
             }
             
             $db = new DB();
             $stmt = $db->consultaAll('mapa', $sqlFormulario, $body->{'valores_insertar'});
             if ($stmt) {
                 return validarDatosReturn(["id"=>$stmt->{'insert_id'}], $response);
-            }else {            
-                return enviarCods(200,'warning','ERROR EN EL REGISTRO DEL REPORTE',[] , $response);
+            }else {
+                return 'ERROR EN EL REGISTRO DEL REPORTE';
             }
+
+            
+            
         }else {
-            return enviarCods(200,'warning','EL VALOR DEL TIPO DE FORMULARIO NO ES VALIDO',[] , $response);
+            return 'EL VALOR DEL TIPO DE FORMULARIO NO ES VALIDO';
         }
     }else {
-            return enviarCods(200,'warning','TIPO DE FORMULARIO NO ENVIADO',[] , $response);
+
+        return 'TIPO DE FORMULARIO NO ENVIADO';
     }
-}});
+   
+
+});
+
 
 $app->post('/api/reportes/eliminar', function (Request $request, Response $response) { 
     $db = new DB();
@@ -2129,35 +2131,40 @@ $app->post('/api/reportes/eliminar', function (Request $request, Response $respo
 //ID DEL INFORME A ELIMINAR
     $TablaConsultar = $_SESSION['TypeConsult'];
 
+    
+
+    
     if (isset($body->{'id_informe'}) && is_numeric($body->{'id_informe'})) {
         if (($body->{'id_informe'} >= 0) && ($body->{'id_informe'} <= 6)) {
             $valorSQL = $TablaConsultar[$body->{'id_formulario'}];
             $sql1 = "SELECT $valorSQL.* FROM $valorSQL";
             $consulta = $db->consultaAll('mapa', $sql1);
-        }else{
-            return enviarCods(200,'warning','TABLA A CONSULTAR NO VALIDA',[] , $response);
+        }else {
+            return 'TABLA A CONSULTAR NO VALIDA';
         }
     }else {
-            return enviarCods(200,'warning','PARAMETROS DE BUSQUEDA NO VALIDOS',[] , $response);
+        return 'PARAMETROS DE BUSQUEDA NO VALIDOS';
     }
 
     if ($consulta) {
+        
 
         try {
             $sql = "DELETE FROM $valorSQL WHERE $valorSQL.`id` = ?";
             $stmt = $db->consultaAll('mapa', $sql, [$body->{'id_informe'}]);
+
 
             if ($stmt) {
 
                 $sql = "DELETE FROM reporte WHERE reporte.id = ?";
                 $stmt = $db->consultaAll('mapa', $sql, [$consulta[0]["id_reporte"]]);
                 if ($stmt) {
-            return enviarCods(200,'ok','INFORME ELIMINADO',[] , $response);
+                    return 'INFORME ELIMINADO';
                 }else {
-            return enviarCods(200,'warning','HUBO UN ERROR EN LA ELIMINACION DEL INFORME',[] , $response);
+                    return 'HUBO UN ERROR EN LA ELIMINACION DEL INFORME';
                 }        
             }else {
-            return enviarCods(200,'warning','HUBO UN ERROR EN LA ELIMINACION DEL INFORME',[] , $response);
+                return 'HUBO UN ERROR EN LA ELIMINACION DEL INFORME';
             }
             
             } 
@@ -2172,7 +2179,14 @@ $app->post('/api/reportes/eliminar', function (Request $request, Response $respo
         }
     }
     
+    
+    
+        
+        
+     
 });
+
+
 
 $app->put('/api/actualizacion/pozo', function (Request $request, Response $response) { 
     $body = json_decode($request->getBody());
@@ -2224,8 +2238,7 @@ $app->put('/api/actualizacion/pozo', function (Request $request, Response $respo
                }                          
             }else {
                 return enviarCods(200, 'warning', "HUBO UN ERROR EN LA ACTUALIZACION", [] , $response);
-            }
-                        
+            }            
         } 
         catch (MySQLDuplicateKeyException $e) {
             $e->getMessage();
@@ -2238,6 +2251,8 @@ $app->put('/api/actualizacion/pozo', function (Request $request, Response $respo
         }
     }   
 });
+
+
 
 $app->put('/api/actualizacion/revision', function (Request $request, Response $response) { 
     $body = json_decode($request->getBody());
@@ -2252,12 +2267,12 @@ $app->put('/api/actualizacion/revision', function (Request $request, Response $r
         $db = new DB();
         $stmt = $db->consultaAll('mapa', $sql, [$body->{'id_revision'}, $body->{'id_reporte'}]);
         if ($stmt) {
-                return enviarCods(200, 'ok', "REPORTE REVISADO", [] , $response);
-            }else {
-                    return enviarCods(200, 'warning', "HUBO UN ERROR EN LA LECTURA DE ESTE REPORTE", [] , $response);
-            }        
-        } 
+            return 'REPORTE REVISADO';          
+        }else {
+            return 'HUBO UN ERROR EN LA LECTURA DEL REPORTE';
+        }
         
+        } 
     catch (MySQLDuplicateKeyException $e) {
         $e->getMessage();
     }

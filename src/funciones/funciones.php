@@ -274,6 +274,9 @@ function validarDatosReturn($returnValidar, $response= null) {
     }
 }
 
+
+
+
 function validarReporteDia($id_estado, $id_tipo_formulario, $fecha){#VALIDA QUE EN EL DIA SOLO SE HAYA HECHO UN REPORTE POR ESTADO AL DIA
   
     $db =  $db = new DB();
@@ -284,6 +287,7 @@ function validarReporteDia($id_estado, $id_tipo_formulario, $fecha){#VALIDA QUE 
         return 'OK';
     }
 }
+
 
 
 
